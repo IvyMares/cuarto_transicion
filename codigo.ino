@@ -66,12 +66,12 @@ void setup() {
 void loop() {
   //La humedad se esta leyendo siempre
   Humd = isnan(dht.readHumidity()) ? 0 : dht.readHumidity() ;
-  Serial.println("Hum:"+ String(Humd,1));
+  Serial.println("Humidity:"+ String(Humd,1));
   lcd.setCursor(0, 0); //COLOCAR EN POSICION
-  lcd.print("Hum:"+ String(Humd,1) + "% ");
+  lcd.print("Humidity:"+ String(Humd,1) + "% ");
   
   for(int i = 0; i<=4; i++){
-    Serial.print("Leeo Entrada:");
+    Serial.print("Leo Entrada:");
     Serial.println(entradas[i]);
     leerEntradas(entradas[i]);
     delay(500);
