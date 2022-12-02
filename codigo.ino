@@ -5,7 +5,7 @@
 
 LiquidCrystal_I2C lcd(0x27,16,2);   //crear el objeto con los pines que se van a usarxxxxxxxxxx SDA A4, SCL A5
 
-// Declaracion de pines E/S todo ok
+// Declaracion de pines E/S
 const int paroEmergencia = 2;
 const int puertaEntrada = 3;
 const int imanEntrada = 4;
@@ -16,11 +16,12 @@ const int rociador = 8;
 DHT dht(9, DHT11);
 const int trigPin = 10; //sensor de proximidad
 const int echoPin = 11; //sensor de proximidad
-const int motoreductor = 12;
+const int piston = 12;
+const int ledAdentro = 13;
 
 // Array de entradas
-const int entradas[5] = { 2, 3, 5, 6, 11};
-//const int salidas [4] = { 4, 7, 8, 12};
+const int entradas[5] = { 2, 3, 5, 6, 11 };
+// const int salidas [5] = { 4, 7, 8, 12, 13 };
 
 long duracion;
 int distancia;
@@ -39,6 +40,7 @@ bool banderaRociador = false;
 void timer(int);
 void leerEntradas(int);
 void dispatch(int);
+void estadoInicial();
 
 void setup() {
   Serial.begin(9600);
@@ -52,17 +54,18 @@ void setup() {
   dht.begin(); // Inicializar dht pin 9
   pinMode(trigPin, OUTPUT); // pin 10
   pinMode(echoPin, INPUT); // pin 11
-  pinMode(motoreductor, OUTPUT); // pin 12
+  pinMode(piston, OUTPUT); // pin 12
+  pinMode(ledAdentro, OUTPUT); // pin 13
 
   lcd.init(); //Inicializar pantalla lcd conectando SDA A4, SCL A5
   lcd.backlight();
   
-  digitalWrite(imanEntrada, HIGH); // Al arrancar el codigo el iman de la entrada estara activado siempre
+  estadoInicial(); // Al arrancar el codigo seteamos estado inicial
 }
 
 void loop() {
   //La humedad se esta leyendo siempre
-  Humd = dht.readHumidity();
+  Humd = isnan(dht.readHumidity()) ? 0 : dht.readHumidity() ;
   Serial.println("Hum:"+ String(Humd,1));
   lcd.setCursor(0, 0); //COLOCAR EN POSICION
   lcd.print("Hum:"+ String(Humd,1) + "% ");
@@ -73,19 +76,25 @@ void loop() {
     leerEntradas(entradas[i]);
     delay(500);
   }
-  //delay(1000);
 }
 
 void timer(int pin){
-  digitalWrite(pin, LOW);
   int timer = 1000;
   digitalWrite(pin, HIGH);
-  while(timer > 0 && banderaParoEmergencia == false){
-    timer--;
-    banderaParoEmergencia = digitalRead(paroEmergencia) == HIGH ? true : false;  
-    Serial.println(timer);
-    }
-  digitalWrite(pin, LOW);
+  if(pin != 12){
+    while(timer > 0 && banderaParoEmergencia == false){
+      timer--;
+      banderaParoEmergencia = digitalRead(paroEmergencia) == HIGH ? true : false;  
+      Serial.println(timer);
+      }
+    digitalWrite(pin, LOW);
+  }else{
+    while(timer > 0){
+        timer--; 
+        Serial.println(timer);
+      }
+    digitalWrite(pin, LOW);
+  }
 }
 
 void leerEntradas (int pin){
@@ -121,45 +130,44 @@ void leerEntradas (int pin){
 void dispatch(int pin){
   switch(pin){
     case 2:
-        banderaParoEmergencia = true;
         Serial.println("Paro Emergencia");
+        estadoInicial();
+        banderaParoEmergencia = true;
+        digitalWrite(imanEntrada, LOW);
       break;
     case 3:
         // puerta entrada paroemergencia false imanentrada LOW puertaentrada true
         Serial.println("Puerta Entrada");
-        banderaPuertaEntrada = true;
         digitalWrite(imanEntrada, LOW); // Apagamos los imanes
+        banderaPuertaEntrada = true;
         banderaParoEmergencia = false; // seteamos paro de emergencia a false
       break;
     case 5:
         // sensor infrarrojo imanentrada hight infrarrojo true if paroemergencia false si paro de emergencia true salidas en low y deshabilita los imanes
         if(banderaParoEmergencia == false){
-          if(banderaPuertaEntrada == true && banderaRociador == false){ //&& banderaInfrarrojoEntrada == false
+          if(banderaPuertaEntrada == true && banderaInfrarrojoEntrada == false && banderaRociador == false){
             digitalWrite(imanEntrada, HIGH); // Encendemos los imanes
+            digitalWrite(ledAdentro, HIGH); // Led indicando que hay alguien adentro
             banderaInfrarrojoEntrada = true;
           }
         }else{
+          estadoInicial();
           digitalWrite(imanEntrada, LOW);
-          banderaPuertaEntrada = false;
-          banderaInfrarrojoEntrada = false;
-          banderaRociador = false;
         }
       break;
     case 6: 
         // desinfeccion solo si infrarrojo es true imanentrada hight led desinfeccion hihg, rociador high si y solo si paro de emergencia low si paro de emergencia true salidas en low y deshabilita los imanes
         Serial.println("Boton Desinfeccion");
         if(banderaParoEmergencia == false){
-          if(banderaPuertaEntrada == true && banderaInfrarrojoEntrada == true && banderaRociador == false && Humd<humedadIdeal)
+          if(banderaPuertaEntrada == true && banderaInfrarrojoEntrada == true && (Humd < humedadIdeal || banderaRociador == false))
             digitalWrite(imanEntrada, HIGH); // Encendemos los imanes
             digitalWrite(ledDesinfeccion, HIGH);
             timer(rociador);
             digitalWrite(ledDesinfeccion, LOW);
             banderaRociador = true;
         }else{
+          estadoInicial();
           digitalWrite(imanEntrada, LOW);
-          banderaPuertaEntrada = false;
-          banderaInfrarrojoEntrada = false;
-          banderaRociador = false;
         }
       break;
     case 11:
@@ -168,15 +176,33 @@ void dispatch(int pin){
         if(banderaParoEmergencia == false){
           if(banderaPuertaEntrada == true && banderaInfrarrojoEntrada == true && banderaRociador == true && Humd>=humedadIdeal){
             digitalWrite(imanEntrada, HIGH); // Encendemos los imanes
-            timer(motoreductor);
+            timer(piston);
+            estadoInicial();
           }        
         }else{
+          estadoInicial();
           digitalWrite(imanEntrada, LOW);
-          banderaPuertaEntrada = false;
-          banderaInfrarrojoEntrada = false;
-          banderaRociador = false;
         }
       break;
   }
 }
 
+void estadoInicial(){
+  digitalWrite(paroEmergencia, LOW); //pin 2
+  digitalWrite(puertaEntrada, LOW); //pin 3
+  digitalWrite(imanEntrada, HIGH); //pin 4
+  digitalWrite(sensorInfrarrojo, HIGH); //pin 5
+  digitalWrite(botonDeDesinfeccion, LOW); //pin 6
+  digitalWrite(ledDesinfeccion, LOW); //pin 7
+  digitalWrite(rociador, LOW); //pin 8
+  digitalWrite(9, LOW); //pin 9
+  digitalWrite(trigPin, LOW); //pin 10
+  digitalWrite(echoPin, LOW); //pin 11
+  digitalWrite(piston, HIGH); //pin 12
+  digitalWrite(ledAdentro, LOW); //pin 13
+               
+  banderaParoEmergencia = false;
+  banderaPuertaEntrada = false;
+  banderaInfrarrojoEntrada = false;
+  banderaRociador = false;
+}
