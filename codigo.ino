@@ -121,7 +121,7 @@ void leerEntradas (int pin){
     duracion = pulseIn(echoPin, HIGH);
     distancia = (duracion * 0.034) / 2;
     lcd.setCursor(0, 1); //COLOCAR EN POSICION
-    lcd.print("distancia: "+ String(distancia) + " cm");
+    lcd.print("Distancia: "+ String(distancia) + " cm");
     if(distancia <= 10 && distancia >= 0){
       dispatch(11);
     }
