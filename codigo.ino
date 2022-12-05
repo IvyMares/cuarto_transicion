@@ -66,51 +66,45 @@ void setup() {
 void loop() {
   //La humedad se esta leyendo siempre
   Humd = isnan(dht.readHumidity()) ? 0 : dht.readHumidity() ;
-  Serial.println("Humidity:"+ String(Humd,1));
   lcd.setCursor(0, 0); //COLOCAR EN POSICION
-  lcd.print("Humidity:"+ String(Humd,1) + "% ");
-  
+  lcd.print("Humedad:"+ String(Humd,1) + "% ");
   for(int i = 0; i<=4; i++){
-    Serial.print("Leo Entrada:");
-    Serial.println(entradas[i]);
-    leerEntradas(entradas[i]);
     delay(500);
+    leerEntradas(entradas[i]);
   }
 }
 
 void timer(int pin){
-  int timer = 1000;
+  int timer = 60;
   digitalWrite(pin, HIGH);
   if(pin != 12){
     while(timer > 0 && banderaParoEmergencia == false){
       timer--;
-      banderaParoEmergencia = digitalRead(paroEmergencia) == HIGH ? true : false;  
-      Serial.println(timer);
+      banderaParoEmergencia = digitalRead(paroEmergencia) == LOW ? true : false;  
+      delay(500);
       }
     digitalWrite(pin, LOW);
   }else{
     while(timer > 0){
-        timer--; 
-        Serial.println(timer);
+        timer--;
+        delay(500);
       }
     digitalWrite(pin, LOW);
   }
 }
 
 void leerEntradas (int pin){
-  if(pin != 5){
+  if(pin != 5 && pin != 2 && pin != 3 && pin != 6){
     if(digitalRead(pin) == HIGH){
-        delay(500);
-        Serial.print("Entrada del pin:");
-        Serial.println(pin);
+        // delay(500);
         dispatch(pin);
+        // delay(500);
       }
     }else{
       if(digitalRead(pin) == LOW){
-          delay(500);
-          Serial.print("Entrada del pin:");
-          Serial.println(pin);
+          // delay(500);
           dispatch(pin);
+          // delay(500);
         }
     }
     digitalWrite(trigPin, LOW);
@@ -130,14 +124,12 @@ void leerEntradas (int pin){
 void dispatch(int pin){
   switch(pin){
     case 2:
-        Serial.println("Paro Emergencia");
         estadoInicial();
         banderaParoEmergencia = true;
         digitalWrite(imanEntrada, LOW);
       break;
     case 3:
         // puerta entrada paroemergencia false imanentrada LOW puertaentrada true
-        Serial.println("Puerta Entrada");
         digitalWrite(imanEntrada, LOW); // Apagamos los imanes
         banderaPuertaEntrada = true;
         banderaParoEmergencia = false; // seteamos paro de emergencia a false
@@ -157,10 +149,10 @@ void dispatch(int pin){
       break;
     case 6: 
         // desinfeccion solo si infrarrojo es true imanentrada hight led desinfeccion hihg, rociador high si y solo si paro de emergencia low si paro de emergencia true salidas en low y deshabilita los imanes
-        Serial.println("Boton Desinfeccion");
         if(banderaParoEmergencia == false){
           if(banderaPuertaEntrada == true && banderaInfrarrojoEntrada == true && (Humd < humedadIdeal || banderaRociador == false))
-            digitalWrite(imanEntrada, HIGH); // Encendemos los imanes
+            digitalWrite(imanEntrada, HIGH);
+            digitalWrite(ledAdentro, HIGH); // Encendemos los imanes
             digitalWrite(ledDesinfeccion, HIGH);
             timer(rociador);
             digitalWrite(ledDesinfeccion, LOW);
@@ -172,10 +164,10 @@ void dispatch(int pin){
       break;
     case 11:
         // trig pin si desinfeccion en true imanentrada high rociador low piston hihg  si y solo si paro de emergencia low si paro de emergencia true salidas en low y deshabilita los imanes
-        Serial.println("Abrir puerta final");
         if(banderaParoEmergencia == false){
-          if(banderaPuertaEntrada == true && banderaInfrarrojoEntrada == true && banderaRociador == true && Humd>=humedadIdeal){
-            digitalWrite(imanEntrada, HIGH); // Encendemos los imanes
+          if(Humd>=humedadIdeal){ //banderaPuertaEntrada == true && banderaInfrarrojoEntrada == true && banderaRociador == true && 
+            digitalWrite(imanEntrada, HIGH);
+            digitalWrite(ledAdentro, HIGH); // Encendemos los imanes
             timer(piston);
             estadoInicial();
           }        
@@ -188,17 +180,17 @@ void dispatch(int pin){
 }
 
 void estadoInicial(){
-  digitalWrite(paroEmergencia, LOW); //pin 2
-  digitalWrite(puertaEntrada, LOW); //pin 3
+  digitalWrite(paroEmergencia, HIGH); //pin 2
+  digitalWrite(puertaEntrada, HIGH); //pin 3
   digitalWrite(imanEntrada, HIGH); //pin 4
   digitalWrite(sensorInfrarrojo, HIGH); //pin 5
-  digitalWrite(botonDeDesinfeccion, LOW); //pin 6
+  digitalWrite(botonDeDesinfeccion, HIGH); //pin 6
   digitalWrite(ledDesinfeccion, LOW); //pin 7
   digitalWrite(rociador, LOW); //pin 8
   digitalWrite(9, LOW); //pin 9
   digitalWrite(trigPin, LOW); //pin 10
   digitalWrite(echoPin, LOW); //pin 11
-  digitalWrite(piston, HIGH); //pin 12
+  digitalWrite(piston, LOW); //pin 12
   digitalWrite(ledAdentro, LOW); //pin 13
                
   banderaParoEmergencia = false;
